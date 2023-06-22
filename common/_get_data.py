@@ -19,7 +19,7 @@ class DataDict:
 
         self.filetype = filetype
         self.baseline = baseline
-        self.path = None
+        self.path = ""
         self.data_dict = {}
         self.all_frequency_values = []
 
@@ -48,7 +48,7 @@ class DataDict:
 
         combined_markdown = {}
         for file_name, file_dict in self.data_dict.items():
-            file_dict["markdown"] = []
+            file_dict["markdown_cells"] = []
             file_dict["word_frequencies"] = {}
 
             notebook_content = self._open_notebook(file_dict["path"] + file_name)
