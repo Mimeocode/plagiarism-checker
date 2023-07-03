@@ -5,6 +5,8 @@ import os
 import shutil
 import copydetect
 import numpy as np
+from numpy.linalg import norm
+from numpy import dot
 
 TMP_FOLDER = "_temp_files"
 class CompareDict:
@@ -30,12 +32,22 @@ class CompareDict:
             self._code_files = [f"{ddict['path']}/{filename}" for filename, ddict in self.data.items()]
             self._check_code()
 
-
     def _notebook_routine(self):
         self._notebooks_to_py_file()
         self._check_code()
         _del_temp_folder()
-        pass
+        self._check_markdown()
+
+    def _check_markdown(self):
+        len_d = len(self.data)
+
+        plag_scores = [None]*len_d
+        iterator = list(range(len_d))
+        for i in range(len_d-1):
+            del iterator[0]
+            plag_scores[i] = self._get_markdown_plagiarism_score(i, iterator)
+        plag_scores[-1] = [None]*len_d
+        self.markdown_scores = np.asarray(plag_scores)
 
     def _check_code(self):
         self._get_fingerprints()
@@ -60,6 +72,23 @@ class CompareDict:
             token_overlap, similarities, slices = copydetect.compare_files(cb1, cb2) # TODO: use token_overlap and slices
             scores[j] = sum(similarities) / len(similarities)
         return scores
+
+    def _get_markdown_plagiarism_score(self, cand: int, iterator: List[int]) -> List[float]:
+        def _cos_similarity(elem1: List[int], elem2: List[int]) -> float:
+            a = np.array(elem1) / np.array(self._mfl)
+            b = np.array(elem2) / np.array(self._mfl)
+            a, b = np.nan_to_num(a, neginf=0, posinf=0, nan=0), np.nan_to_num(b, neginf=0, posinf=0, nan=0)
+            score = float(dot(b.T, a) / (norm(a) * norm(b)))
+            return score
+
+        len_f = len(self.all_frequency_values)
+        nb1 = self.all_frequency_values[cand]
+        scores = [None] * len_f
+        for i in iterator:
+            nb2 = self.all_frequency_values[i]
+            scores[i] = _cos_similarity(nb1, nb2)
+        return scores
+
     def _get_fingerprints(self):
         if self._cellwise:
             fingerprints = []
@@ -82,6 +111,7 @@ class CompareDict:
             with open(path, "w", encoding="utf-8") as file:
                 file.write(program)
             self._code_files.append(path)
+
 
 def _del_temp_folder():
     shutil.rmtree(TMP_FOLDER)

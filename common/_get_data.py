@@ -3,7 +3,7 @@ import chardet
 from json import load
 from os import walk
 from itertools import chain
-from typing import Tuple
+import shutil
 from collections import Counter
 from nltk.tokenize import word_tokenize
 from nltk.corpus import stopwords
@@ -11,11 +11,11 @@ from nltk.stem import WordNetLemmatizer
 import zipfile
 
 class DataDict:
-    def __init__(self, archive: str, filetype: str, baseline: str | None):
+    def __init__(self, archive_path: str, filetype: str, baseline: str | None):
         self._detector = chardet.UniversalDetector()
         self._stopwords = set(stopwords.words('english'))
         self._vocabulary = []
-        self._archive = archive
+        self._archive = archive_path
 
         self.filetype = filetype
         self.baseline = baseline
@@ -25,6 +25,8 @@ class DataDict:
 
         self._extract_archive()
         self._get_dict()
+        #self._del_tmp_archive_folder()  #-> removes folder of submissions
+
 
     def _extract_archive(self):
         self.path = self._archive.split(".zip")[0]
@@ -49,14 +51,15 @@ class DataDict:
         combined_markdown = {}
         for file_name, file_dict in self.data_dict.items():
             file_dict["markdown_cells"] = []
+            file_dict["code_cells"] = []
             file_dict["word_frequencies"] = {}
 
-            notebook_content = self._open_notebook(file_dict["path"] + file_name)
+            notebook_content = self._open_notebook(f"{file_dict['path']}/{file_name}")
             if notebook_content is None:
                 continue
             for cell in notebook_content["cells"]:
                 ct = cell["cell_type"]
-                s = "".join(cell["source"]) # this removes non utf-8 characters
+                s = "".join(cell["source"])  # this removes non utf-8 characters
                 if ct == "code":
                     file_dict["code_cells"].append(s)
                 elif ct == "markdown":
@@ -71,38 +74,26 @@ class DataDict:
                         combined_markdown[word] += 1
                     if self.baseline and file_name == self.baseline:
                         combined_markdown[word] -= 2
-        self.vocabulary = list(set(combined_markdown))
+        self._vocabulary = list(set(combined_markdown))
 
     def _get_word_frequencies(self):
-        for _, file_dict in self.data_dict.items():
-            _, tmp_freqs = self._extract_freq(file_dict)
-            self._all_frequency_values.append(tmp_freqs)
+        [self._extract_freq(file_dict) for _, file_dict in self.data_dict.items()]
 
-    def _extract_freq(self, file_dict: dict) -> Tuple[dict, list]:
+    def _extract_freq(self, file_dict: dict):
         file_dict["word_frequency"] = {}
         counts = Counter(sum(file_dict["markdown_cells"], []))
-        tmp_freqs = []
         for vocab_word in self._vocabulary:
             file_dict["word_frequency"][vocab_word] = counts[vocab_word]
-            tmp_freqs.append(counts[vocab_word])
-
-            """
-            OLD ONE: 
-            if vocab_word in counts:
-                file_dict["word_frequency"][vocab_word] = counts[vocab_word]
-                tmp_freqs.append(counts[vocab_word])
-            else:
-                file_dict["word_frequency"][vocab_word] = 0
-                tmp_freqs.append(0)
-            """
-        return file_dict, tmp_freqs
+        self.all_frequency_values.append(list(file_dict["word_frequency"].values()))
 
     def _open_notebook(self, path: str):
         try:
             self._detector.reset()
             for line in open(path, "rb"):
-                self._detector.feed(line) # this is more robust in detecting encoding
-                if self._detector.done: break
+                self._detector.feed(line)  # this is more robust in detecting encoding
+
+                if self._detector.done:
+                    break
             self._detector.close()
             encoding = self._detector.result["encoding"]
             with open(path, encoding=encoding) as json_file:
@@ -110,3 +101,6 @@ class DataDict:
         except:
             print(f"{path} was problematic")
             pass
+
+    def _del_tmp_archive_folder(self):
+        shutil.rmtree(self._archive.split(".zip")[0])
