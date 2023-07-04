@@ -9,30 +9,33 @@ from nltk.tokenize import word_tokenize
 from nltk.corpus import stopwords
 from nltk.stem import WordNetLemmatizer
 import zipfile
+from attrs import validators, setters, define, field
 
+
+@define(kw_only=True)
 class DataDict:
-    def __init__(self, archive_path: str, filetype: str, baseline: str | None):
-        self._detector = chardet.UniversalDetector()
-        self._stopwords = set(stopwords.words('english'))
-        self._vocabulary = []
-        self._archive = archive_path
+    _detector = chardet.UniversalDetector()
+    _stopwords = set(stopwords.words('english'))
+    _vocabulary: list = []
 
-        self.filetype = filetype
-        self.baseline = baseline
-        self.path = ""
-        self.data_dict = {}
-        self.all_frequency_values = []
+    archive: str = field(validator=validators.instance_of(str), on_setattr=setters.frozen)
+    filetype: str = field(validator=validators.instance_of(str), on_setattr=setters.frozen)
+    baseline: str | None
 
+    path: str = ""
+    data_dict: dict = {}
+    all_frequency_values: list = []
+
+    def get_data(self):
         self._extract_archive()
         self._get_dict()
-        #self._del_tmp_archive_folder()  #-> removes folder of submissions
-
+        self._del_tmp_archive_folder()  #-> removes folder of submissions
 
     def _extract_archive(self):
-        self.path = self._archive.split(".zip")[0]
-        with zipfile.ZipFile(self._archive, "r") as zip_ref:
+        self.path = self.archive.split(".zip")[0]
+        with zipfile.ZipFile(self.archive, "r") as zip_ref:
             zip_ref.extractall(self.path)
-        os.remove(self._archive)
+        os.remove(self.archive)
 
     def _get_dict(self):
         for _, _, filenames in walk(self.path):
@@ -103,4 +106,4 @@ class DataDict:
             pass
 
     def _del_tmp_archive_folder(self):
-        shutil.rmtree(self._archive.split(".zip")[0])
+        shutil.rmtree(self.archive.split(".zip")[0])

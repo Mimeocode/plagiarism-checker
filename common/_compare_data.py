@@ -7,39 +7,44 @@ import copydetect
 import numpy as np
 from numpy.linalg import norm
 from numpy import dot
+from attrs import define, field, validators
 
-TMP_FOLDER = "_temp_files"
+
+
+@define(kw_only = True)
 class CompareDict:
+    exclude_kw: str | None = field(validator=validators.optional(validators.instance_of(str)), default=None)
+    cellwise: bool | None = field(validator=validators.optional(validators.instance_of(bool)), default=None)
+
+    filetype: str = field(validator=validators.instance_of(str))
+    data_dict: dict = field(validator=validators.instance_of(dict))
+    all_frequency_values: list = field(validator=validators.instance_of(list))
+
+    markdown_scores, code_scores = None, None
+    _mfl: list = []
+    _code_files: list = []
+    _fingerprints: list = []
+    _TMP_FOLDER: str = "_temp_files"
+
     # TODO: cellwise doesnt work yet --> get plagiarism scores is not supporting cellwise right now
-    def __init__(self, data_dict: DataDict,
-                 exclude_kw: str = None,
-                 cellwise: bool = False):
-        self.filetype = data_dict.filetype
-        self.data = data_dict.data_dict
-        self.all_frequency_values = data_dict.all_frequency_values
-
-        self.markdown_scores,  self.code_scores = None, None
-
-        self._exclude_kw = exclude_kw
-        self._cellwise = cellwise
+    def run_comparison(self):
         self._mfl = [max(elements) for elements in zip(*self.all_frequency_values)]
-        self._code_files = [] # file paths
-        self._fingerprints = []
+        self._TMP_FOLDER = self._TMP_FOLDER + str(self.__hash__())
 
         if "ipynb" in self.filetype:
             self._notebook_routine()
         else:
-            self._code_files = [f"{ddict['path']}/{filename}" for filename, ddict in self.data.items()]
+            self._code_files = [f"{file_dict['path']}/{filename}" for filename, file_dict in self.data_dict.items()]
             self._check_code()
 
     def _notebook_routine(self):
         self._notebooks_to_py_file()
         self._check_code()
-        _del_temp_folder()
+        self._del_temp_folder()
         self._check_markdown()
 
     def _check_markdown(self):
-        len_d = len(self.data)
+        len_d = len(self.data_dict)
 
         plag_scores = [None]*len_d
         iterator = list(range(len_d))
@@ -51,16 +56,14 @@ class CompareDict:
 
     def _check_code(self):
         self._get_fingerprints()
-
-        file_names = list(self.data.keys())
+        file_names = list(self.data_dict.keys())
         len_f = len(file_names)
 
         plag_scores = [None] * len_f
         iterator = list(range(len_f))
         for i in range(len_f-1):
             del iterator[0]
-            scores = self._get_code_plagiarism_score(i, len_f, iterator)
-            plag_scores[i] = scores
+            plag_scores[i] = self._get_code_plagiarism_score(i, len_f, iterator)    
         plag_scores[-1] = [None]*len_f
         self.code_scores = np.asarray(plag_scores)
 
@@ -103,15 +106,17 @@ class CompareDict:
                 self._fingerprints.append(fp)
 
     def _notebooks_to_py_file(self):
-        os.makedirs(TMP_FOLDER, exist_ok=True)
-        for file_name, file_dict in self.data.items():
-            notebook_code = [cell for cell in file_dict["code_cells"] if self._exclude_kw not in cell] if self._exclude_kw else file_dict["code_cells"]
+        os.makedirs(self._TMP_FOLDER, exist_ok=True)
+        for file_name, file_dict in self.data_dict.items():
+            notebook_code = [cell for cell in file_dict["code_cells"] if self.exclude_kw not in cell] if self.exclude_kw else file_dict["code_cells"]
             program = "\n".join(notebook_code)
-            path = TMP_FOLDER + f"/{file_name}.py"
+            path = self._TMP_FOLDER + f"/{file_name}.py"
             with open(path, "w", encoding="utf-8") as file:
                 file.write(program)
             self._code_files.append(path)
 
+    def _del_temp_folder(self):
+        shutil.rmtree(self._TMP_FOLDER)
 
-def _del_temp_folder():
-    shutil.rmtree(TMP_FOLDER)
+
+
