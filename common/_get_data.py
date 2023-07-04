@@ -16,13 +16,13 @@ from attrs import validators, setters, define, field
 class DataDict:
     _detector = chardet.UniversalDetector()
     _stopwords = set(stopwords.words('english'))
-    _vocabulary: list = []
+    _vocabulary: list = field(init=False)
 
     archive: str = field(validator=validators.instance_of(str), on_setattr=setters.frozen)
     filetype: str = field(validator=validators.instance_of(str), on_setattr=setters.frozen)
-    baseline: str | None
+    baseline: str | None = field(validator=validators.optional(validators.instance_of(str)), default=None)
 
-    path: str = ""
+    path: str = field(init=False)
     data_dict: dict = {}
     all_frequency_values: list = []
 

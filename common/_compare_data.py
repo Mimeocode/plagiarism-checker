@@ -1,6 +1,4 @@
-from ._get_data import DataDict
 from typing import List
-
 import os
 import shutil
 import copydetect
@@ -10,8 +8,7 @@ from numpy import dot
 from attrs import define, field, validators
 
 
-
-@define(kw_only = True)
+@define(kw_only=True)
 class CompareDict:
     exclude_kw: str | None = field(validator=validators.optional(validators.instance_of(str)), default=None)
     cellwise: bool | None = field(validator=validators.optional(validators.instance_of(bool)), default=None)
@@ -20,8 +17,10 @@ class CompareDict:
     data_dict: dict = field(validator=validators.instance_of(dict))
     all_frequency_values: list = field(validator=validators.instance_of(list))
 
-    markdown_scores, code_scores = None, None
-    _mfl: list = []
+    markdown_scores: list | None = None
+    code_scores: list | None = None
+
+    _mfl: list = field(init=False)
     _code_files: list = []
     _fingerprints: list = []
     _TMP_FOLDER: str = "_temp_files"
@@ -32,16 +31,13 @@ class CompareDict:
         self._TMP_FOLDER = self._TMP_FOLDER + str(self.__hash__())
 
         if "ipynb" in self.filetype:
-            self._notebook_routine()
+            self._notebooks_to_py_files()
+            self._check_code()
+            self._del_tmp_folder()
+            self._check_markdown()
         else:
             self._code_files = [f"{file_dict['path']}/{filename}" for filename, file_dict in self.data_dict.items()]
             self._check_code()
-
-    def _notebook_routine(self):
-        self._notebooks_to_py_file()
-        self._check_code()
-        self._del_temp_folder()
-        self._check_markdown()
 
     def _check_markdown(self):
         len_d = len(self.data_dict)
@@ -55,7 +51,7 @@ class CompareDict:
         self.markdown_scores = np.asarray(plag_scores)
 
     def _check_code(self):
-        self._get_fingerprints()
+        self._generate_fingerprints()
         file_names = list(self.data_dict.keys())
         len_f = len(file_names)
 
@@ -92,7 +88,7 @@ class CompareDict:
             scores[i] = _cos_similarity(nb1, nb2)
         return scores
 
-    def _get_fingerprints(self):
+    def _generate_fingerprints(self):
         if self._cellwise:
             fingerprints = []
             for files in self._code_files:
@@ -105,7 +101,7 @@ class CompareDict:
                 fp = copydetect.CodeFingerprint(file, 25, 1)
                 self._fingerprints.append(fp)
 
-    def _notebooks_to_py_file(self):
+    def _notebooks_to_py_files(self):
         os.makedirs(self._TMP_FOLDER, exist_ok=True)
         for file_name, file_dict in self.data_dict.items():
             notebook_code = [cell for cell in file_dict["code_cells"] if self.exclude_kw not in cell] if self.exclude_kw else file_dict["code_cells"]
@@ -115,7 +111,7 @@ class CompareDict:
                 file.write(program)
             self._code_files.append(path)
 
-    def _del_temp_folder(self):
+    def _del_tmp_folder(self):
         shutil.rmtree(self._TMP_FOLDER)
 
 
