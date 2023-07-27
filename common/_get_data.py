@@ -39,7 +39,7 @@ class DataDict:
 
         self._extract_archive()
         self._get_dict()
-        #self._del_archive_folder()  #-> removes folder of submissions
+        #self._del_archive_folder()  #-> removes all folders of submissions
 
     def _extract_archive(self):
         self.path = self.archive.split(".zip")[0]
@@ -103,7 +103,7 @@ class DataDict:
         try:
             self._detector.reset()
             for line in open(path, "rb"):
-                self._detector.feed(line)  # this is more robust in detecting encoding
+                self._detector.feed(line)  # this is more robust in detecting encoding but takes longer
                 if self._detector.done:
                     break
             self._detector.close()

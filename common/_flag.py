@@ -11,9 +11,10 @@ def _add_metric_distance(df: pd.DataFrame, metric_scaler: int = 10) -> pd.DataFr
     def _process_cell(cell: tuple):
         vals = filter(None, list(cell))
         if any(cell):
-            scaled_vals = [v * metric_scaler for v in vals] # scaling values since if 1 -> max distance is 1, if scaled distance increases when multiple metrics are max
-            z = (np.abs(reduce(add, scaled_vals))+np.abs(reduce(sub, scaled_vals))) / len(cell) / metric_scaler
-            return *vals, z
+            # euclidean distance!
+            scaled_vals = [(v * metric_scaler) ** 2 for v in vals] # scaling values since if 1 -> max distance is 1, if scaled distance increases when multiple metrics are max
+            z = np.sqrt(reduce(add, scaled_vals)) / metric_scaler
+            return cell + (z,)
         return None
     df = df.applymap(_process_cell)
     return df
@@ -70,9 +71,10 @@ class Flagger:
             self.file_names = [self.extractor(name) for name in self.file_names]
 
     def _flagging_df_from_score_lists(self):
-        def __make_tuple(x, y: list):
-            y.insert(0, x)
-            return tuple(y)
+        def __make_tuple(x, y):
+            if isinstance(x, tuple):
+                return x + (y,)
+            return x, y
 
         dfs = []
         for lst in [self.markdown_scores, self.code_scores]:  # make dfs from not None score lists
@@ -84,15 +86,15 @@ class Flagger:
         # combine dfs to one
         primary_df, *secondary_dfs = dfs
         for column in primary_df.columns:
-            # TODO: combining multiple not working  yet
-            primary_df[column] = primary_df[column].combine([secondary_dfs], lambda x, y: __make_tuple(x, [ydf[column] for ydf in y]))
+            for sdf in secondary_dfs:
+                primary_df[column] = primary_df[column].combine(sdf[column], lambda x, y: __make_tuple(x, y))
         primary_df = _add_metric_distance(primary_df)
 
         # make the relational df from previous square matrix df
-        i, j = primary_df.size
+        i, j = primary_df.shape
         assert i == j, f"ERROR, matrix expected to be square, got: {i}x{j}"
         data_size = int((i * j - j) / 2)  # number of unique relations between n elements
-        self.metric_cols = [f"Metric_{column_index}" for column_index in range(len(dfs) + 1)]
+        self.metric_cols = [f"Metric_{column_index}" for column_index in range(len(dfs)+1)]
 
         data = {'Submission 1': [None] * data_size,
                 'Submission 2': [None] * data_size}
@@ -107,13 +109,13 @@ class Flagger:
                 data[col][tmp_idx] = primary_df.iloc[ie, je][k]
             tmp_idx += 1
 
-        self.flagging_df = pd.DataFrame(data).sort_values("combined", ascending=False)
+        self.flagging_df = pd.DataFrame(data).sort_values(self.metric_cols[-1], ascending=False)  # sorted by distance
 
     def _remove_barren(self):
         to_keep = [self.baseline]
         df = self.flagging_df
 
-        # target_df is copy since flagging modyfies underlying df
+        # target_df is copy since flagging modifies underlying df
         target_df = df[df['Submission 1'].isin(to_keep) | df['Submission 2'].isin(to_keep)].copy()
         self._flag_outliers(df=target_df, threshold=self.barren_threshold)
         target_df_sus = target_df[target_df["Classification"] > 0]
