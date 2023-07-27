@@ -14,13 +14,15 @@ from attrs import validators, setters, define, field
 
 @define(kw_only=True)
 class DataDict:
+    arguments: vars = field(on_setattr=setters.frozen)
+
     _detector = chardet.UniversalDetector()
     _stopwords = set(stopwords.words('english'))
     _vocabulary: list = field(init=False)
 
-    archive: str = field(validator=validators.instance_of(str), on_setattr=setters.frozen)
-    filetype: str = field(validator=validators.instance_of(str), on_setattr=setters.frozen)
-    baseline: str | None = field(validator=validators.optional(validators.instance_of(str)), default=None)
+    archive: str = arguments["archive"]
+    filetype: str = arguments["filetype"]
+    baseline: str | None = arguments["baseline"]
 
     path: str = field(init=False)
     data_dict: dict = {}

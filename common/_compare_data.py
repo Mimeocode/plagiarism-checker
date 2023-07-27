@@ -1,19 +1,21 @@
 from typing import List
 import os
+import uuid
 import shutil
 import copydetect
 import numpy as np
 from numpy.linalg import norm
 from numpy import dot
-from attrs import define, field, validators
+from attrs import define, field, validators, setters
 
 
 @define(kw_only=True)
 class CompareDict:
-    exclude_kw: str | None = field(validator=validators.optional(validators.instance_of(str)), default=None)
-    cellwise: bool | None = field(validator=validators.optional(validators.instance_of(bool)), default=None)
+    exclude_kw: str | None = field(validator=validators.optional(validators.instance_of(str)), default=None, on_setattr=setters.frozen)
+    cellwise: bool | None = field(validator=validators.optional(validators.instance_of(bool)), default=None, on_setattr=setters.frozen)
 
-    filetype: str = field(validator=validators.instance_of(str))
+    arguments: vars = field(on_setattr=setters.frozen)
+    filetype: str = arguments["filetype"]
     data_dict: dict = field(validator=validators.instance_of(dict))
     all_frequency_values: list = field(validator=validators.instance_of(list))
 
@@ -23,7 +25,7 @@ class CompareDict:
     _mfl: list = field(init=False)
     _code_files: list = []
     _fingerprints: list = []
-    _TMP_FOLDER: str = "_temp_files"
+    _TMP_FOLDER: str = f"_temp_files_{uuid.uuid4()}"
 
     # TODO: cellwise doesnt work yet --> get plagiarism scores is not supporting cellwise right now
     def run_comparison(self):
