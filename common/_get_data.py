@@ -20,31 +20,38 @@ class DataDict:
     _stopwords = set(stopwords.words('english'))
     _vocabulary: list = field(init=False)
 
-    archive: str = arguments["archive"]
-    filetype: str = arguments["filetype"]
-    baseline: str | None = arguments["baseline"]
+    archive: str = field(init=False)
+    filetype: str = field(init=False)
+    baseline: str | None = field(init=False)
 
     path: str = field(init=False)
     data_dict: dict = {}
     all_frequency_values: list = []
 
+
+    def _secondary_init(self):
+        self.archive = self.arguments["archive"]
+        self.filetype = self.arguments["filetype"]
+        self.baseline = self.arguments["baseline"]
+
     def get_data(self):
+        self._secondary_init()
+
         self._extract_archive()
         self._get_dict()
-        self._del_tmp_archive_folder()  #-> removes folder of submissions
+        #self._del_archive_folder()  #-> removes folder of submissions
 
     def _extract_archive(self):
         self.path = self.archive.split(".zip")[0]
         with zipfile.ZipFile(self.archive, "r") as zip_ref:
             zip_ref.extractall(self.path)
-        os.remove(self.archive)
 
     def _get_dict(self):
-        for _, _, filenames in walk(self.path):
+        for root, _, filenames in walk(self.path):
             for filename in filenames:
                 if filename.endswith(self.filetype):
                     self.data_dict[filename] = {}
-                    self.data_dict[filename]["path"] = self.path
+                    self.data_dict[filename]["path"] = root
 
         if "ipynb" in self.filetype:
             self._notebook_extractor()
@@ -60,6 +67,7 @@ class DataDict:
             file_dict["word_frequencies"] = {}
 
             notebook_content = self._open_notebook(f"{file_dict['path']}/{file_name}")
+
             if notebook_content is None:
                 continue
             for cell in notebook_content["cells"]:
@@ -96,7 +104,6 @@ class DataDict:
             self._detector.reset()
             for line in open(path, "rb"):
                 self._detector.feed(line)  # this is more robust in detecting encoding
-
                 if self._detector.done:
                     break
             self._detector.close()
@@ -107,5 +114,6 @@ class DataDict:
             print(f"{path} was problematic")
             pass
 
-    def _del_tmp_archive_folder(self):
+    def _del_archive_folder(self):
+        os.remove(self.archive)
         shutil.rmtree(self.archive.split(".zip")[0])

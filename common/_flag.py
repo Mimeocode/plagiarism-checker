@@ -35,10 +35,10 @@ class Flagger:
     code_scores: list | None = field(on_setattr=setters.frozen)
 
     arguments: vars = field(on_setattr=setters.frozen)
-    filetype: str = arguments["filetype"]
-    baseline: str | None = arguments["baseline"]
-    flagging_threshold: float = arguments["threshold"]
-    barren_threshold: float | None = arguments["barrenthreshold"]
+    filetype: str = field(init=False)
+    baseline: str | None = field(init=False)
+    flagging_threshold: float = field(init=False)
+    barren_threshold: float | None = field(init=False)
 
     file_names: list
     metric_cols: list = field(init=False)
@@ -47,8 +47,15 @@ class Flagger:
     extractor: Callable | None = field(default=_canvas_rule, on_setattr=setters.frozen)
     flagging_df: pd.DataFrame = field(init=False)
 
+    def _secondary_init(self):
+        self.filetype = self.arguments["filetype"]
+        self.baseline = self.arguments["baseline"]
+        self.flagging_threshold = self.arguments["threshold"]
+        self.barren_threshold = self.arguments["barrenthreshold"]
 
     def flag_submissions(self):
+        self._secondary_init()
+
         self._extract_names()  # get names of submissions from file names
         self._flagging_df_from_score_lists()
         self.flagging_df.dropna(axis=0, how="any", inplace=True)  # optional to get rid of incompletely analysed submissions
@@ -63,6 +70,10 @@ class Flagger:
             self.file_names = [self.extractor(name) for name in self.file_names]
 
     def _flagging_df_from_score_lists(self):
+        def __make_tuple(x, y: list):
+            y.insert(0, x)
+            return tuple(y)
+
         dfs = []
         for lst in [self.markdown_scores, self.code_scores]:  # make dfs from not None score lists
             if lst is not None:
@@ -73,7 +84,8 @@ class Flagger:
         # combine dfs to one
         primary_df, *secondary_dfs = dfs
         for column in primary_df.columns:
-            primary_df[column] = primary_df[column].combine(secondary_dfs, lambda x: tuple([xdf[column] for xdf in x]))
+            # TODO: combining multiple not working  yet
+            primary_df[column] = primary_df[column].combine([secondary_dfs], lambda x, y: __make_tuple(x, [ydf[column] for ydf in y]))
         primary_df = _add_metric_distance(primary_df)
 
         # make the relational df from previous square matrix df
@@ -119,3 +131,5 @@ class Flagger:
             threshold = df[ti].quantile(1 - threshold)
             df.loc[df[ti] >= threshold, "Classification"] += 1  # if a metric is above the threshold increase classifcation of pairing
 
+    def save_csv(self):
+        self.flagging_df.to_csv("temp.csv")
