@@ -1,0 +1,72 @@
+\documentclass{article}
+\usepackage{graphicx}
+\usepackage{hyperref}
+\usepackage{import}
+\usepackage{subfig}
+\usepackage{longtable}
+\usepackage
+[
+        a4paper,
+        vmargin=2cm,
+        top=2.3cm,
+        bottom=3.5cm,
+]
+{geometry}
+
+
+\makeatletter 
+\def\@maketitle{
+\raggedright
+
+\begin{center}
+{
+\includegraphics[width = 30mm]{img/mc-logo-nobg.png}\\[3ex]
+\huge \bfseries \sffamily \@title }\\[4ex] 
+{\Large  \@author}\\[4ex] 
+\@date\\[8ex]
+\end{center}}
+\makeatother
+
+\title{\textbf{Plagiarism Report for %(title)s}}
+\author{%(course)s}
+\date{\today}
+
+\begin{document}
+\maketitle
+\tableofcontents
+\newpage
+
+\section{Statistics}
+In the analysis of the %(numofsub)s submitted files, a total amount of %(numdep)s relevant dependencies between
+files were generated. %(numofplag)s of which were flagged as potentially plagiarized. Plagiarism was only
+assessed on code for this submission as well as the baseline adjustments were only done on code.
+The parameters for detecting plagiarism were set as follows:
+\begin{table}[h]
+\centering
+\begin{tabular}{ll}
+                               & \textit{value} \\ \hline
+\textit{Plagiarism Threshold} & %(plagthresh)s   \\
+\textit{Threshold Barren$\ast$}    & %(barrthresh)s
+\end{tabular}
+\end{table}\\
+{\small $\ast$ If applicable: Threshold for discarding submissions if they are too similar to.}
+%(distrsect)s
+\\
+To further analyze the potentially fraudulent dependencies a network graph is plotted, showing the similarity of code between individual submissions \hyperref[fig:ntwrk]{(Fig. \ref{fig:ntwrk}}). The names of the nodes correspond to the student number, with the value on edges being the similar to another submission.
+The edge's thickness and color are adjusted based on the magnitude of their values. All cases are listed in \hyperref[sec:cl]{Case Listings}\\
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=\textwidth]{img/network.png}
+    \caption{Network Graph for the Potential Cases of Plagiarism}
+    \label{fig:ntwrk}
+\end{figure}
+
+\section{Case Listings}\label{sec:cl}
+The columns\textit{ markdown} and \textit{code} depict the respective similarity values for each metric whereas \textit{combined} is $\sqrt{markdown^2+code^2}$.
+%(cldiscifcodeonly)s \\
+%(casetable)s
+
+\newpage
+\section{Cases}
+
+\end{document}
