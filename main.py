@@ -12,6 +12,9 @@ parser.add_argument("-c", "--codeonly", type=bool, default=True)
 parser.add_argument("-t", "--threshold", type=float, default=0.005)
 parser.add_argument("-bt", "--barrenthreshold", type=float, default=None)
 
+parser.add_argument("-an", "--assignmentname", type=str, default=None)
+parser.add_argument("-cn", "--coursename", type=str, default=None)
+
 
 def main(arguments: vars):
     dd = DataDict(arguments=arguments)
@@ -22,15 +25,20 @@ def main(arguments: vars):
                     all_frequency_values=dd.all_frequency_values)
     c.run_comparison()
 
-    code_only = True if "ipynb" not in arguments["filetype"] else arguments["code_only"]  # dont allow markdown comparison for non-notebook files
+    code_only = True if "ipynb" not in arguments["filetype"] else arguments["codeonly"]  # dont allow markdown comparison for non-notebook files
     f = Flagger(arguments=arguments,
                 file_names=list(dd.data_dict.keys()),
                 code_only=code_only,
                 markdown_scores=c.markdown_scores,
                 code_scores=c.code_scores)
+
     f.flag_submissions()
+    f.save_csv()
 
-
+    r = Report(arguments=arguments,
+               flagged_df=f.flagging_df,
+               file_names=list(dd.data_dict.keys()))
+    r.generate_report()
 
 if __name__ == '__main__':
     args = vars(parser.parse_args())
