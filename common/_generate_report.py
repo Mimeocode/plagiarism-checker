@@ -48,7 +48,10 @@ class Report:
 
         with open(f"{self.working_dir}/main.tex", "r+") as f:
             content = f.read()
-            f.write(content%insertion_dir)  # this inserts dict items into %(key)s
+
+            f.seek(0)
+            f.write(content%insertion_dir) # this inserts dict items into %(key)s
+            f.truncate()
 
         os.chdir(self.working_dir)
         proc = subprocess.Popen(["pdflatex", f"main.tex"])
@@ -59,15 +62,15 @@ class Report:
     def _get_distr_section(self):
         self._plot_specifc_dist()  # generating plots on the go to allow for specific plottings
 
-        if self.arguments["filetype"] == "ipynb":
+        if "ipynb" in self.arguments["filetype"]:
             self._plot_distr()  # is only used for notebooks
 
             distr_section = r"\hyperref[fig:f1]{Fig. \ref{fig:f1}} below shows the distribution of similarities for both code and markdown. --#"
             if self.code_only:
-                distr_section.replace("--#", r"Since for the current submissions, markdown can be disregarded as a measure of plagiarism, a separate figure for the code is shown below \hyperref[fig:f2]{(Fig. \ref{fig:f2})} --#")
+                distr_section.replace(r"--#", r"Since for the current submissions, markdown can be disregarded as a measure of plagiarism, a separate figure for the code is shown below \hyperref[fig:f2]{(Fig. \ref{fig:f2})} --#")
             else:
-                distr_section.replace("--#", r"For better visibility a separate figure for the code is shown below \hyperref[fig:f2]{(Fig. \ref{fig:f2})} --#")
-            distr_section.replace("--#", r"""\begin{figure}[!hbp]
+                distr_section.replace(r"--#", r"For better visibility a separate figure for the code is shown below \hyperref[fig:f2]{(Fig. \ref{fig:f2})} --#")
+            distr_section.replace(r"--#", r"""\begin{figure}[!hbp]
   \centering
   \subfloat[Distribution of Scores for Markdown and Code]{\includegraphics[width=0.4\textwidth]{img/distr_plot.png}\label{fig:f1}}
   \hfill
@@ -104,11 +107,11 @@ class Report:
         :return:
         """
         plot_df = self.flagged_df.copy()
-        plot_df[plot_df["Classification"] == "0"] = "Unsuspected"  # TODO : should be value based not str
-        plot_df[plot_df["Classification"] == "1"] = "Suspected" # TypeError: '>' not supported between instances of 'str' and 'int'
-        plot_df[plot_df["Classification"] == "2"] = "Likely"
+        plot_df[plot_df["Classification"] < 1] = "Unsuspected"  # TODO : should be value based not str
+        plot_df[plot_df["Classification"] == 1] = "Suspected" # TypeError: '>' not supported between instances of 'str' and 'int'
+        plot_df[plot_df["Classification"] > 1] = "Likely"
 
-        ax = sns.jointplot(data=plot_df,
+        ax = sns.jointplot(data=self.plot_df,
                            x="Metric_0",
                            y="Metric_1",
                            kind="scatter",
@@ -140,7 +143,7 @@ class Report:
         metric_col = "Metric_1" if self.code_only or self.arguments["filetype"] != "ipynb" else "Metric_2"
         EPS = 0.001
 
-        suspects = self.flagged_df[self.flagged_df["Classification"] != "0"]
+        suspects = self.flagged_df[self.flagged_df["Classification"] > 0]
 
         # normalize column TODO: why -> probably better without??
         # min_params, max_params = df[[weight_col]].min(), df[[weight_col]].max()

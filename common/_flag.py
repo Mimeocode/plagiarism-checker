@@ -128,7 +128,7 @@ class Flagger:
     def _flag_outliers(self, df, threshold):
         df["Classification"] = 0
 
-        tmp_iter = self.metric_cols if not self.code_only else [self.metric_cols[0]]
+        tmp_iter = self.metric_cols if not self.code_only else [self.metric_cols[1]]
         for ti in tmp_iter:
             q_threshold = df[ti].quantile(1 - threshold)
             df.loc[df[ti] >= q_threshold, "Classification"] += 1  # if a metric is above the threshold increase classifcation of pairing

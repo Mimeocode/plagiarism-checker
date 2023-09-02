@@ -1,10 +1,5 @@
-flagging has some issue -> all dependencies get flagged as 1 and they do not increase above 1.
+insertion of distribution section is not working properly yet
+-> maybe r strings the problem?
 
---> network graph is therefore ugly
 
-insertion of dict items doesnt work in report generation
-should work as follows: %(dict_key)s will be replaced with value: "dict_key": dict_value
--> doesnt work at all but no error
-
-testing using: python  main.py -f "ipynb" -a submissions_A3.zip -c True  -an TEST -cn TEST2
-
+command for testing: python  main.py -f "ipynb" -a submissions_A3.zip -c True -an TEST -cn TEST2
