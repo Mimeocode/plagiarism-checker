@@ -19,8 +19,8 @@ class CompareDict:
     data_dict: dict = field(validator=validators.instance_of(dict))
     all_frequency_values: list = field(validator=validators.instance_of(list))
 
-    markdown_scores: list | None = None
-    code_scores: list | None = None
+    markdown_scores = field(init=False)  # list | ndarray | None
+    code_scores = field(init=False)  # list | ndarray | None
 
     _mfl: list = field(init=False)
     _code_files: list = []
@@ -44,7 +44,6 @@ class CompareDict:
         else:
             self._code_files = [f"{file_dict['path']}/{filename}" for filename, file_dict in self.data_dict.items()]
             self._check_code()
-
 
     def _check_markdown(self):
         len_d = len(self.data_dict)
