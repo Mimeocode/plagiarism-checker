@@ -1,10 +1,11 @@
 from itertools import combinations
 import pandas as pd
 import numpy as np
-from operator import sub, add
+from operator import add
 from functools import reduce
-from typing import Callable
-from attrs import define, field, Factory, validators, setters
+from typing import Callable, Optional
+from attrs import define, field, setters
+from ._name_extractor import *
 
 
 def _add_metric_distance(df: pd.DataFrame, metric_scaler: int = 10) -> pd.DataFrame:
@@ -18,16 +19,6 @@ def _add_metric_distance(df: pd.DataFrame, metric_scaler: int = 10) -> pd.DataFr
         return None
     df = df.applymap(_process_cell)
     return df
-
-
-def _canvas_rule(x):
-    lst = x.split("_")
-    try:
-        if lst[1] == "LATE":
-            return "_".join([lst[1],lst[-1][:7]])
-        return lst[-1][:7]
-    except:
-        return x
 
 
 @define(kw_only=True)
@@ -45,7 +36,7 @@ class Flagger:
     metric_cols: list = field(init=False)
 
     code_only: bool = field(on_setattr=setters.frozen)
-    extractor: Callable | None = field(default=_canvas_rule, on_setattr=setters.frozen)
+    extractor: Optional[Callable] = field(init=False)
     flagging_df: pd.DataFrame = field(init=False)
 
     def _secondary_init(self):
@@ -66,9 +57,15 @@ class Flagger:
         self._flag_outliers(df=self.flagging_df, threshold=self.flagging_threshold)
 
     def _extract_names(self):
+        self.extractor = {"None": None,
+                          "canvas": canvas_rule,
+                          "code_grade": code_grade_rule,
+                          }[self.arguments["extract_name"]]
+
         self.file_names = [name.removesuffix(self.filetype) for name in self.file_names]
-        if self.extractor is not None:
+        if self.extractor:
             self.file_names = [self.extractor(name) for name in self.file_names]
+
 
     def _flagging_df_from_score_lists(self):
         def __make_tuple(x, y):

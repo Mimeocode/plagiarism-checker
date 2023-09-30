@@ -80,9 +80,8 @@ class CompareDict:
 
     def _get_markdown_plagiarism_score(self, cand: int, iterator: List[int]) -> List[float]:
         def _cos_similarity(elem1: List[int], elem2: List[int]) -> float:
-            a = np.array(elem1) / np.array(self._mfl)
-            b = np.array(elem2) / np.array(self._mfl)
-            a, b = np.nan_to_num(a, neginf=0, posinf=0, nan=0), np.nan_to_num(b, neginf=0, posinf=0, nan=0)
+            a = np.array([x/y if y > 0 else 0 for x, y in zip(elem1, self._mfl)])
+            b = np.array([x/y if y > 0 else 0 for x, y in zip(elem2, self._mfl)])
             score = float(dot(b.T, a) / (norm(a) * norm(b)))
             return score
 

@@ -1,7 +1,8 @@
 import shutil
 import subprocess
 import os
-
+import sys
+import codecs
 import pandas as pd
 from attrs import define, field, Factory, validators, setters
 import matplotlib.pyplot as plt
@@ -19,47 +20,41 @@ class Report:
     code_only: bool = field(init=False)
 
     def generate_report(self):
-        course_name = self.arguments["coursename"]
         assignment_name = self.arguments["assignmentname"]
-
         self.code_only = self.arguments["codeonly"]
-        threshold = self.arguments["threshold"]
-        barren_thresh = self.arguments["barrenthreshold"]
 
-        name_hash = f"{assignment_name if assignment_name else 'NONE'}_{course_name if course_name else 'NONE'}_{hash(assignment_name)}"
-        self.working_dir = f"./assets/report_{name_hash}"
+        self.working_dir = f"./assets/report_{assignment_name}_{hash(assignment_name)}"
         shutil.copytree("./assets/report_template", self.working_dir)
 
         self._plot_weighted_network()
-
         insertion_dir = {
             "title": assignment_name,
             "course": self.arguments["coursename"],
             "numofsub": str(len(self.file_names)),
             "numdep": str(len(self.flagged_df)),
             "numofplag": str(len(self.flagged_df[self.flagged_df['Classification'] > 0])),
-            "plagthresh": str(threshold),
-            "barrthresh": str(barren_thresh),
+            "plagthresh": str(self.arguments["threshold"]),
+            "barrthresh": str(self.arguments["barrenthreshold"]),
             "distrsect": self._get_distr_section(),
             "cldiscifcodeonly": r"For the analysis of this submission \textit{markdown} and \textit{combined} can be disregarded, since no textual answers were asked in the notebooks.\\"
                                               if self.code_only else "",
             "casetable": self._get_table()
         }
 
-        with open(f"{self.working_dir}/main.tex", "r+") as f:
+        with open(f"{self.working_dir}/main.tex", "r+", encoding="utf-8") as f:
             content = f.read()
 
-            f.seek(0)
-            f.write(content%insertion_dir) # this inserts dict items into %(key)s
+            f.seek(0)  # allows for overwrite
+            f.write(content%insertion_dir)  # this inserts dict items into %(key)s
             f.truncate()
 
-        os.chdir(self.working_dir)
+        os.chdir(self.working_dir)  # go into working dir to execute rendering --> necessary to find images
         proc = subprocess.Popen(["pdflatex", f"main.tex"])
         proc.communicate()
 
         #self._rm_working_dir()
 
-    def _get_distr_section(self):
+    def _get_distr_section(self) -> str:
         self._plot_specifc_dist()  # generating plots on the go to allow for specific plottings
 
         if "ipynb" in self.arguments["filetype"]:
@@ -86,10 +81,11 @@ class Report:
 \end{figure}\\"""
         return distr_section
 
-    def _get_table(self):
+    def _get_table(self) -> str:
         sort_col = "Metric_1" if self.code_only else "Metric_2"
         ltx = self.flagged_df[self.flagged_df["Classification"] > 0].sort_values(sort_col, ascending=False).to_latex(index=False,
                                                                                         float_format="{:.3f}".format)
+        ltx.replace("_", r"\_")
         ltx = ltx.split("\n")
         ltx.insert(2, r"\hline")
         ltx.insert(4, r"\hline\hline")
@@ -99,7 +95,7 @@ class Report:
 
     # plotting
 
-    def _plot_distr(self):
+    def _plot_distr(self) -> None:
         """
         Plots distribution of submissions similarity
         :param df: dataframe of submission daza
@@ -107,11 +103,11 @@ class Report:
         :return:
         """
         plot_df = self.flagged_df.copy()
-        plot_df[plot_df["Classification"] < 1] = "Unsuspected"  # TODO : should be value based not str
-        plot_df[plot_df["Classification"] == 1] = "Suspected" # TypeError: '>' not supported between instances of 'str' and 'int'
-        plot_df[plot_df["Classification"] > 1] = "Likely"
+        plot_df["Classification"] = "Unsuspected"  # TODO : should be value based not str
+        plot_df[self.flagged_df["Classification"] == 1]["Classification"] = "Suspected"
+        plot_df[self.flagged_df["Classification"] > 1]["Classification"] = "Likely"
 
-        ax = sns.jointplot(data=self.plot_df,
+        ax = sns.jointplot(data=plot_df,
                            x="Metric_0",
                            y="Metric_1",
                            kind="scatter",
@@ -122,11 +118,11 @@ class Report:
         sns.move_legend(ax.ax_joint, "upper left", bbox_to_anchor=(1, 1.2))
         plt.savefig(f"{self.working_dir}/img/distr_plot.png")
 
-    def _plot_specifc_dist(self, metric="Metric_1"):
+    def _plot_specifc_dist(self, metric="Metric_1") -> None:
         sns.displot(data=self.flagged_df, x=metric, fill=True)
         plt.savefig(f"{self.working_dir}/img/specific_distr_plot.png")
 
-    def _get_top_percentile(self, df: pd.DataFrame, weight_col, percentile):
+    def _get_top_percentile(self, df: pd.DataFrame, weight_col, percentile) -> pd.DataFrame:
         df = df.copy()
         # Find out percentiles
         lower = np.percentile(df[weight_col], 100 - percentile)
@@ -138,7 +134,7 @@ class Report:
     def _plot_weighted_network(self,
                                percentile: int = 100,
                                use_graphviz: bool = True,
-                               anonymous: bool = False):
+                               anonymous: bool = False,) -> None:
 
         metric_col = "Metric_1" if self.code_only or self.arguments["filetype"] != "ipynb" else "Metric_2"
         EPS = 0.001
@@ -151,21 +147,22 @@ class Report:
 
         df_100_c = self._get_top_percentile(suspects.copy(), metric_col, 100)[[metric_col]]
         df = self._get_top_percentile(suspects, metric_col, percentile)  # .sort_values(weight_col, ascending=True)
-
-        def _sigmoid(target_df: pd.DataFrame, x: float):
+        df = df[df["Metric_1"] > self.arguments["cutoff"]]
+        def _sigmoid(target_df: pd.DataFrame, x: float) -> float:
             # super complicated sigmoid modification that does what I wanted lol (this took me 4 days to make:)
             t = np.average([target_df.min(), target_df.max()])
             b = np.power(t, 10 * t) * 100
             f = 1 / (1 + np.exp(b * (-x + t)))
             return f
 
+
         G = nx.Graph()  # Create an empty graph
         fig_dim = np.sqrt(len(df)) + 5
         plt.figure(1, figsize=(fig_dim, fig_dim), dpi=200)
         # Add edges and their weights to the graph
         for index, row in df.iterrows():
-            G.add_edge(row["Submission 1"],
-                       row["Submission 2"],
+            G.add_edge(row["Submission 1"].encode(sys.stdout.encoding, errors='replace'),
+                       row["Submission 2"].encode(sys.stdout.encoding, errors='replace'),
                        weight=str(row[metric_col]),
                        len="10")
 
@@ -199,5 +196,5 @@ class Report:
         nx.draw_networkx_edge_labels(G, pos, edge_labels=labels, font_size=6, alpha=0.8)
         plt.savefig(f"{self.working_dir}/img/network.png", format="PNG")
 
-    def _rm_working_dir(self):
+    def _rm_working_dir(self) -> None:
         shutil.rmtree(self.working_dir)
