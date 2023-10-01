@@ -1,7 +1,5 @@
 import argparse
 from common import *
-from typing import Callable, Optional
-
 
 parser = argparse.ArgumentParser(prog="PlagiarismChecker",
                                  description="Runs the workflow for checking Plagiarism")
@@ -37,10 +35,11 @@ def main(arguments: vars):
                 file_names=list(dd.data_dict.keys()),
                 code_only=code_only,
                 markdown_scores=c.markdown_scores,
-                code_scores=c.code_scores)
+                code_scores=c.code_scores,
+                code_slices=c.code_slices)
 
     f.flag_submissions()
-    #f.save_csv()
+    f.save_csv()
 
     print("Reporting")
     r = Report(arguments=arguments,
