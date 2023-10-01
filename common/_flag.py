@@ -25,6 +25,7 @@ def _add_metric_distance(df: pd.DataFrame, metric_scaler: int = 10) -> pd.DataFr
 class Flagger:
     markdown_scores: list | None = field(on_setattr=setters.frozen)
     code_scores: list | None = field(on_setattr=setters.frozen)
+    code_slices: list | None = field(on_setattr=setters.frozen)
 
     arguments: vars = field(on_setattr=setters.frozen)
     filetype: str = field(init=False)
@@ -74,7 +75,7 @@ class Flagger:
             return x, y
 
         dfs = []
-        for lst in [self.markdown_scores, self.code_scores]:  # make dfs from not None score lists
+        for lst in [self.markdown_scores, self.code_scores]: # make dfs from not None score lists
             if lst is not None:
                 df = pd.DataFrame(lst)
                 # df.columns = df.index = self.file_names # not necessary since not accessed anywhere
@@ -94,7 +95,8 @@ class Flagger:
         self.metric_cols = [f"Metric_{column_index}" for column_index in range(len(dfs)+1)]
 
         data = {'Submission 1': [None] * data_size,
-                'Submission 2': [None] * data_size}
+                'Submission 2': [None] * data_size,
+                'Code_Slices': [None] * data_size}
         for col in self.metric_cols:
             data[col] = [0] * data_size
 
@@ -102,6 +104,7 @@ class Flagger:
         for ie, je in combinations(range(i), 2):  # populate data dir with submission pairs and scores
             data['Submission 1'][tmp_idx] = self.file_names[ie]
             data['Submission 2'][tmp_idx] = self.file_names[je]
+            data['Code_Slices'][tmp_idx] = self.code_slices[ie][je]
             for k, col in enumerate(self.metric_cols):  # enumerate is used here since number of metrics usually < 10
                 data[col][tmp_idx] = primary_df.iloc[ie, je][k]
             tmp_idx += 1

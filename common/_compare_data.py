@@ -1,8 +1,8 @@
-from typing import List
 import os
 import uuid
 import shutil
 import copydetect
+from copydetect.utils import highlight_overlap
 import numpy as np
 from numpy.linalg import norm
 from numpy import dot
@@ -21,6 +21,7 @@ class CompareDict:
 
     markdown_scores = field(init=False)  # list | ndarray | None
     code_scores = field(init=False)  # list | ndarray | None
+    code_slices = field(init=False)  # list | ndarray | None
 
     _mfl: list = field(init=False)
     _code_files: list = []
@@ -62,24 +63,34 @@ class CompareDict:
         len_f = len(file_names)
 
         plag_scores = [None] * len_f
+        plag_slices = [None] * len_f
         iterator = list(range(len_f))
         for i in range(len_f-1):
             del iterator[0]
-            plag_scores[i] = self._get_code_plagiarism_score(i, len_f, iterator)    
-        plag_scores[-1] = [None]*len_f
-        self.code_scores = np.asarray(plag_scores)
+            plag_scores[i], plag_slices[i] = self._get_code_plagiarism_score(i, len_f, iterator)
+        plag_scores[-1], plag_slices[-1] = [None]*len_f, [(None, None)]*len_f
+        self.code_scores, self.code_slices = np.asarray(plag_scores), np.asarray(plag_slices)
 
-    def _get_code_plagiarism_score(self, candidate: int, len_f: int, iterator: List[int]) -> List[float]:
+    def _get_code_plagiarism_score(self,
+                                   candidate: int,
+                                   len_f: int,
+                                   iterator: list[int]) -> tuple[list[float|None], list[tuple[str, str]|tuple[None, None]]]:
         cb1 = self._fingerprints[candidate]
-        scores = [None] * len_f
+        scores, slices = [None] * len_f, [(None, None)] * len_f
         for j in iterator:
             cb2 = self._fingerprints[j]
-            token_overlap, similarities, slices = copydetect.compare_files(cb1, cb2) # TODO: use token_overlap and slices
-            scores[j] = sum(similarities) / len(similarities)
-        return scores
+            _, similarities, slice = copydetect.compare_files(cb1, cb2)  # TODO: use token_overlap and slices
+            curr_score = sum(similarities) / len(similarities)
+            scores[j] = curr_score
 
-    def _get_markdown_plagiarism_score(self, cand: int, iterator: List[int]) -> List[float]:
-        def _cos_similarity(elem1: List[int], elem2: List[int]) -> float:
+            code1, _ = highlight_overlap(cb1.raw_code, slice[0], ">>", "<<")
+            code2, _ = highlight_overlap(cb2.raw_code, slice[1], ">>", "<<")
+            slices[j] = (code1, code2)
+
+        return scores, slices
+
+    def _get_markdown_plagiarism_score(self, cand: int, iterator: list[int]) -> list[float]:
+        def _cos_similarity(elem1: list[int], elem2: list[int]) -> float:
             a = np.array([x/y if y > 0 else 0 for x, y in zip(elem1, self._mfl)])
             b = np.array([x/y if y > 0 else 0 for x, y in zip(elem2, self._mfl)])
             score = float(dot(b.T, a) / (norm(a) * norm(b)))

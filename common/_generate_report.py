@@ -2,14 +2,15 @@ import shutil
 import subprocess
 import os
 import sys
-import codecs
 import pandas as pd
-from attrs import define, field, Factory, validators, setters
+from attrs import define, field,setters
 import matplotlib.pyplot as plt
 import seaborn as sns
 import networkx as nx
 import numpy as np
+from tqdm import tqdm
 
+EPS = 0.001
 @define(kw_only=True)
 class Report:
     arguments: vars = field(on_setattr=setters.frozen)
@@ -38,7 +39,9 @@ class Report:
             "distrsect": self._get_distr_section(),
             "cldiscifcodeonly": r"For the analysis of this submission \textit{markdown} and \textit{combined} can be disregarded, since no textual answers were asked in the notebooks.\\"
                                               if self.code_only else "",
-            "casetable": self._get_table()
+            "casetable": self._get_table(),
+            "cutoff": self.arguments["cutoff"],
+            "cases": self._generate_cases(),
         }
 
         with open(f"{self.working_dir}/main.tex", "r+", encoding="utf-8") as f:
@@ -51,6 +54,8 @@ class Report:
         os.chdir(self.working_dir)  # go into working dir to execute rendering --> necessary to find images
         proc = subprocess.Popen(["pdflatex", f"main.tex"])
         proc.communicate()
+        proc = subprocess.Popen(["pdflatex", f"main.tex"])
+        proc.communicate()
 
         #self._rm_working_dir()
 
@@ -60,12 +65,12 @@ class Report:
         if "ipynb" in self.arguments["filetype"]:
             self._plot_distr()  # is only used for notebooks
 
-            distr_section = r"\hyperref[fig:f1]{Fig. \ref{fig:f1}} below shows the distribution of similarities for both code and markdown. --#"
+            distr_section = r"Below, in Fig. \ref{fig:f1}, we present a graphical representation depicting the distribution of similarities for both code and markdown. --#"
             if self.code_only:
-                distr_section.replace(r"--#", r"Since for the current submissions, markdown can be disregarded as a measure of plagiarism, a separate figure for the code is shown below \hyperref[fig:f2]{(Fig. \ref{fig:f2})} --#")
+                distr_section = distr_section.replace("--#", r"Given that, for the current submissions, markdown can be considered irrelevant in the context of measuring plagiarism, a dedicated figure is provided below for the assessment of code similarity (Fig. \ref{fig:f2}). --#")
             else:
-                distr_section.replace(r"--#", r"For better visibility a separate figure for the code is shown below \hyperref[fig:f2]{(Fig. \ref{fig:f2})} --#")
-            distr_section.replace(r"--#", r"""\begin{figure}[!hbp]
+                distr_section = distr_section.replace(r"--#", r"To enhance clarity and visual distinction, an independent figure focusing solely on the code is presented below (Fig. \ref{fig:f2}). --#")
+            distr_section = distr_section.replace(r"--#", r"""\begin{figure}[!hbp]
   \centering
   \subfloat[Distribution of Scores for Markdown and Code]{\includegraphics[width=0.4\textwidth]{img/distr_plot.png}\label{fig:f1}}
   \hfill
@@ -73,7 +78,7 @@ class Report:
   \caption{Distribution Overview}
 \end{figure}\\)""")
         else:
-            distr_section = r"""\hyperref[fig:f1]{Fig. \ref{fig:f1}} below shows the distribution of code. \begin{figure}[!hbp]
+            distr_section = r"""Fig. \ref{fig:f1} below shows the distribution of code. \begin{figure}[!hbp]
   \centering
   \includegraphics[width=0.6\textwidth]{img/specific_distr_plot.png}
   \label{fig:f1}
@@ -82,16 +87,59 @@ class Report:
         return distr_section
 
     def _get_table(self) -> str:
+        def __replace_items(string: str, repl_dict: dict) -> str:
+            for key, item in repl_dict.items():
+                string = string.replace(key, item)
+            return string
         sort_col = "Metric_1" if self.code_only else "Metric_2"
-        ltx = self.flagged_df[self.flagged_df["Classification"] > 0].sort_values(sort_col, ascending=False).to_latex(index=False,
-                                                                                        float_format="{:.3f}".format)
-        ltx.replace("_", r"\_")
+        ltx = self.flagged_df[self.flagged_df["Classification"] > 0].copy()
+        del ltx["Classification"]
+        del ltx["Code_Slices"]
+        ltx = ltx.sort_values(sort_col, ascending=False).to_latex(index=False, float_format="{:.3f}".format)
+
+        repl_dict = {
+            r"\begin{tabular}{llrrr}": r"\begin{longtable}{p{.28\textwidth} p{.28\textwidth} p{.10\textwidth} p{.08\textwidth} p{.10\textwidth}}",
+            r"\end{tabular}": r"\end{longtable}",
+            r"\toprule": "",
+            r"\midrule": "",
+            r"\bottomrule": "",
+            "Metric_0": "markdown",
+            "Metric_1": "code",
+            "Metric_2": "combined",
+            "_": r"\_",}
+
+        ltx = __replace_items(ltx, repl_dict)
+
         ltx = ltx.split("\n")
         ltx.insert(2, r"\hline")
         ltx.insert(4, r"\hline\hline")
         ltx.insert(-3, r"\hline")
         ltx = "\n".join(ltx)
         return ltx
+
+    def _generate_cases(self) -> str:
+        def __format_code(paragraph:str) -> str:
+            #highlight = paragraph.split(">>")
+            #highlighted = ""
+            #for i in range(len(highlight)//2):
+            #    first = highlight[i]
+            #    second, third = highlight[i+1].split("<<")
+            #    highlighted += r"|\colorbox{green}{"+"".join([first, second])+r"}|"+third
+            return "\n".join([x for x in paragraph.split("\n") if not x.startswith("#") and x.strip()])
+
+        case_string = ""
+        selection = self.flagged_df[(self.flagged_df["Classification"] > 0) &
+                                    (self.flagged_df["Metric_1"] > self.arguments["cutoff"]) &
+                                    (self.flagged_df["Metric_0"] > self.arguments["cutoff"])]
+        selection = selection.sort_values("Metric_1", ascending=False)
+        for _, case in tqdm(selection.iterrows()):
+            case_string += r"\subsection*{\textbf{Case}: "+case["Submission 1"]+" and "+case["Submission 2"]+r"}\\"
+            code1, code2 = case["Code_Slices"]
+            code1, code2 = __format_code(code1), __format_code(code2)
+            case_string += r"\textbf{"+case["Submission 1"]+r"}\\ \begin{python}"+"\n"+code1+"\n"+r"\end{python}\\"
+            case_string += r"\textbf{"+case["Submission 2"]+r"}\\ \begin{python}"+"\n"+code2+"\n"+r"\end{python}\newpage"
+
+        return case_string
 
     # plotting
 
@@ -116,10 +164,16 @@ class Report:
                            hue_order=['Unsuspected', 'Suspected', 'Likely'])
 
         sns.move_legend(ax.ax_joint, "upper left", bbox_to_anchor=(1, 1.2))
+        plt.tight_layout()
         plt.savefig(f"{self.working_dir}/img/distr_plot.png")
 
     def _plot_specifc_dist(self, metric="Metric_1") -> None:
         sns.displot(data=self.flagged_df, x=metric, fill=True)
+        thresh = self.flagged_df[metric].quantile(1-self.arguments["threshold"])
+        co = self.arguments["cutoff"]
+        plt.axvline(thresh, color="orange", label=f"top {self.arguments['threshold']:.2%}")
+        plt.axvline(co, color="red", label=f"{co:.2%}-Cutoff")
+        plt.legend()
         plt.savefig(f"{self.working_dir}/img/specific_distr_plot.png")
 
     def _get_top_percentile(self, df: pd.DataFrame, weight_col, percentile) -> pd.DataFrame:
@@ -137,13 +191,7 @@ class Report:
                                anonymous: bool = False,) -> None:
 
         metric_col = "Metric_1" if self.code_only or self.arguments["filetype"] != "ipynb" else "Metric_2"
-        EPS = 0.001
-
         suspects = self.flagged_df[self.flagged_df["Classification"] > 0]
-
-        # normalize column TODO: why -> probably better without??
-        # min_params, max_params = df[[weight_col]].min(), df[[weight_col]].max()
-        # df[[weight_col]] = (df[[weight_col]] - min_params) / (max_params - min_params)
 
         df_100_c = self._get_top_percentile(suspects.copy(), metric_col, 100)[[metric_col]]
         df = self._get_top_percentile(suspects, metric_col, percentile)  # .sort_values(weight_col, ascending=True)
@@ -155,14 +203,12 @@ class Report:
             f = 1 / (1 + np.exp(b * (-x + t)))
             return f
 
-
         G = nx.Graph()  # Create an empty graph
         fig_dim = np.sqrt(len(df)) + 5
         plt.figure(1, figsize=(fig_dim, fig_dim), dpi=200)
-        # Add edges and their weights to the graph
-        for index, row in df.iterrows():
-            G.add_edge(row["Submission 1"].encode(sys.stdout.encoding, errors='replace'),
-                       row["Submission 2"].encode(sys.stdout.encoding, errors='replace'),
+        for index, row in df.iterrows():  # Add edges and their weights to the graph
+            G.add_edge(row["Submission 1"].encode(sys.stdout.encoding, "replace"), # TODO: the encoding stuff is shit
+                       row["Submission 2"].encode(sys.stdout.encoding, "replace"),
                        weight=str(row[metric_col]),
                        len="10")
 
@@ -195,6 +241,9 @@ class Report:
             labels[k] = f"{float(v):.3f}"
         nx.draw_networkx_edge_labels(G, pos, edge_labels=labels, font_size=6, alpha=0.8)
         plt.savefig(f"{self.working_dir}/img/network.png", format="PNG")
+
+
+
 
     def _rm_working_dir(self) -> None:
         shutil.rmtree(self.working_dir)

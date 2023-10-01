@@ -1,6 +1,7 @@
 \documentclass{article}
 \usepackage{graphicx}
 \usepackage{hyperref}
+\usepackage{pythonhighlight}
 \usepackage{import}
 \usepackage{subfig}
 \usepackage{longtable}
@@ -27,20 +28,23 @@
 \end{center}}
 \makeatother
 
+
+
 \title{\textbf{Plagiarism Report for %(title)s}}
 \author{%(course)s}
 \date{\today}
 
 \begin{document}
+
 \maketitle
 \tableofcontents
 \newpage
 
 \section{Statistics}
-In the analysis of the %(numofsub)s submitted files, a total amount of %(numdep)s relevant dependencies between
-files were generated. %(numofplag)s of which were flagged as potentially plagiarized. Plagiarism was only
-assessed on code for this submission as well as the baseline adjustments were only done on code.
-The parameters for detecting plagiarism were set as follows:
+In the examination of the %(numofsub)s submitted files, a comprehensive evaluation yielded a total of %(numdep)s pertinent interdependencies among files.
+Among these, %(numofplag)s were identified and flagged as potential instances of plagiarism.
+It is noteworthy that the evaluation exclusively focused on code segments within the submissions, and any baseline adjustments were confined solely to code-related elements.
+The criteria and parameters used for the detection of plagiarism were configured as follows:
 \begin{table}[h]
 \centering
 \begin{tabular}{ll}
@@ -49,11 +53,13 @@ The parameters for detecting plagiarism were set as follows:
 \textit{Threshold Barren$\ast$}    & %(barrthresh)s
 \end{tabular}
 \end{table}\\
-{\small $\ast$ If applicable: Threshold for discarding submissions if they are too similar to.}
+{\small $\ast$ If applicable: The threshold for disqualifying submissions due to excessive similarity to}
 %(distrsect)s
 \\
-To further analyze the potentially fraudulent dependencies a network graph is plotted, showing the similarity of code between individual submissions \hyperref[fig:ntwrk]{(Fig. \ref{fig:ntwrk}}). The names of the nodes correspond to the student number, with the value on edges being the similar to another submission.
-The edge's thickness and color are adjusted based on the magnitude of their values. All cases are listed in \hyperref[sec:cl]{Case Listings}\\
+To conduct a more thorough examination of potentially fraudulent dependencies, a network graph has been constructed to illustrate the code similarity among individual submissions (\hyperref[fig:ntwrk]{Fig. \ref{fig:ntwrk}}).
+Within this graphical representation, nodes are labeled with corresponding student numbers, and the edges are weighted to signify the degree of similarity with other submissions.
+The thickness and coloration of these edges are dynamically adjusted to convey the strength of their similarity scores.
+It is crucial to note that, for this network graph, only those dependencies exceeding a similarity score threshold of %(cutoff)s are visually depicted. Comprehensive details for all cases can be found in the \hyperref[sec:cl]{Case Listings} section.
 \begin{figure}[h]
     \centering
     \includegraphics[width=\textwidth]{img/network.png}
@@ -62,11 +68,12 @@ The edge's thickness and color are adjusted based on the magnitude of their valu
 \end{figure}
 
 \section{Case Listings}\label{sec:cl}
-The columns\textit{ markdown} and \textit{code} depict the respective similarity values for each metric whereas \textit{combined} is $\sqrt{markdown^2+code^2}$.
+The columns denoted as \textit{markdown} and \textit{code} present the individual similarity values for each metric, while the \textit{combined} column offers a comprehensive assessment through the calculation of the Euclidean distance, represented as $\sqrt{markdown^2 + code^2}$.
 %(cldiscifcodeonly)s \\
 %(casetable)s
 
 \newpage
 \section{Cases}
+%(cases)s
 
 \end{document}
