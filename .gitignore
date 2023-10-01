@@ -2,3 +2,4 @@
 /venv/
 /common/__pycache__
 **.zip
+.idea
