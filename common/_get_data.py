@@ -39,7 +39,7 @@ class DataDict:
 
         self._extract_archive()
         self._get_dict()
-        #self._del_archive_folder()  #-> removes all folders of submissions
+        #self._del_archive_folder()
 
     def _extract_archive(self):
         self.path = self.archive.split(".zip")[0]

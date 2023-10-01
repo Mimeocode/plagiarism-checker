@@ -1,3 +1,7 @@
 /example_notebooks/
 /venv/
 /common/__pycache__
+**.zip
+.idea
+*__pycache__
+*/*__pycache__
