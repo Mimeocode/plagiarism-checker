@@ -28,6 +28,7 @@ class Report:
         shutil.copytree("./assets/report_template", self.working_dir)
 
         self._plot_weighted_network()
+        self._plot_weighted_network(draw_labels=False)
         insertion_dir = {
             "title": assignment_name,
             "course": self.arguments["coursename"],
@@ -188,7 +189,7 @@ class Report:
     def _plot_weighted_network(self,
                                percentile: int = 100,
                                use_graphviz: bool = True,
-                               anonymous: bool = False,) -> None:
+                               draw_labels: bool = True,) -> None:
 
         metric_col = "Metric_1" if self.code_only or self.arguments["filetype"] != "ipynb" else "Metric_2"
         suspects = self.flagged_df[self.flagged_df["Classification"] > 0]
@@ -205,7 +206,7 @@ class Report:
 
         G = nx.Graph()  # Create an empty graph
         fig_dim = np.sqrt(len(df)) + 5
-        plt.figure(1, figsize=(fig_dim, fig_dim), dpi=200)
+        fig = plt.figure(1, figsize=(fig_dim, fig_dim), dpi=200)
         for index, row in df.iterrows():  # Add edges and their weights to the graph
             G.add_edge(row["Submission 1"].encode(sys.stdout.encoding, "replace"), # TODO: the encoding stuff is shit
                        row["Submission 2"].encode(sys.stdout.encoding, "replace"),
@@ -218,10 +219,10 @@ class Report:
         pos = nx.nx_pydot.graphviz_layout(G, prog="neato") if use_graphviz else nx.spring_layout(G, seed=42,
                                                                                                  k=1.5 * 1 / np.sqrt(
                                                                                                      len(G.nodes())),
-                                                                                                 iterations=20)
+                                                                                                iterations=20)
 
         nx.draw_networkx(G, pos,
-                         with_labels=(not anonymous),
+                         with_labels=draw_labels,
                          node_color='pink',
                          node_size=600,
                          font_size=6,
@@ -240,7 +241,9 @@ class Report:
         for k, v in labels.items():
             labels[k] = f"{float(v):.3f}"
         nx.draw_networkx_edge_labels(G, pos, edge_labels=labels, font_size=6, alpha=0.8)
-        plt.savefig(f"{self.working_dir}/img/network.png", format="PNG")
+
+        ste = "_anon" if not draw_labels else ""
+        plt.savefig(f"{self.working_dir}/img/network{ste}.png", format="PNG")
 
 
 

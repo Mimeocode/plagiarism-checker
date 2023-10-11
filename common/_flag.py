@@ -133,5 +133,8 @@ class Flagger:
             q_threshold = df[ti].quantile(1 - threshold)
             df.loc[df[ti] >= q_threshold, "Classification"] += 1  # if a metric is above the threshold increase classifcation of pairing
 
-    def save_csv(self):
-        self.flagging_df.to_csv("temp.csv")
+    def save_csv(self, name:str = "", include_slices: bool = True):
+        if include_slices:
+            self.flagging_df.to_csv(f"{name}_temp.csv")
+        else:
+            self.flagging_df.drop("Code_Slices", axis=1).to_csv(f"{name}_temp.csv")
