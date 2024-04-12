@@ -65,7 +65,7 @@ class Flagger:
 
         self.file_names = [name.removesuffix(self.filetype) for name in self.file_names]
         if self.extractor:
-            self.file_names = [self.extractor(name) for name in self.file_names]
+            self.file_names = [self.extractor(name) if self.baseline not in name else name for name in self.file_names]
 
 
     def _flagging_df_from_score_lists(self):

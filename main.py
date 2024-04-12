@@ -45,14 +45,14 @@ def main(arguments: vars) -> None:
                 code_slices=c.code_slices)
 
     f.flag_submissions()
-    f.save_csv()
 
     print("Reporting")
     r = Report(arguments=arguments,
                flagged_df=f.flagging_df,
                file_names=list(dd.data_dict.keys()))
-    r.generate_report()
+    r.generate_report(with_cases=False)
     print("DONE!")
+    del dd
 
 
 if __name__ == '__main__':
