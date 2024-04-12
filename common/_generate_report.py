@@ -187,7 +187,7 @@ class Report:
 
     def _plot_weighted_network(self,
                                percentile: int = 100,
-                               use_graphviz: bool = True,
+                               use_graphviz: bool = False,
                                anonymous: bool = False,) -> None:
 
         metric_col = "Metric_1" if self.code_only or self.arguments["filetype"] != "ipynb" else "Metric_2"

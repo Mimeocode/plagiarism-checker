@@ -18,7 +18,12 @@ parser.add_argument("-an", "--assignmentname", type=str, default=None)
 parser.add_argument("-cn", "--coursename", type=str, default=None)
 
 
-def main(arguments: vars):
+def main(arguments: vars) -> None:
+    """
+    Run the main script to flag plagiarism.
+
+    :param arguments: The arguments for the plagiarism checker.
+    """
     print("Data Extraction")
     dd = DataDict(arguments=arguments)
     dd.get_data()
@@ -30,7 +35,8 @@ def main(arguments: vars):
     c.run_comparison()
 
     print("Plagiarism Flagging")
-    code_only = True if "ipynb" not in arguments["filetype"] else arguments["codeonly"]  # dont allow markdown comparison for non-notebook files
+    code_only = True if "ipynb" not in arguments["filetype"] else arguments[
+        "codeonly"]  # dont allow markdown comparison for non-notebook files
     f = Flagger(arguments=arguments,
                 file_names=list(dd.data_dict.keys()),
                 code_only=code_only,
@@ -47,6 +53,7 @@ def main(arguments: vars):
                file_names=list(dd.data_dict.keys()))
     r.generate_report()
     print("DONE!")
+
 
 if __name__ == '__main__':
     args = vars(parser.parse_args())

@@ -14,6 +14,7 @@ from attrs import validators, setters, define, field
 
 @define(kw_only=True)
 class DataDict:
+    """A dictionary that stores all relevant data."""
     arguments: vars = field(on_setattr=setters.frozen)
 
     _detector = chardet.UniversalDetector()
@@ -28,7 +29,6 @@ class DataDict:
     data_dict: dict = {}
     all_frequency_values: list = []
 
-
     def _secondary_init(self):
         self.archive = self.arguments["archive"]
         self.filetype = self.arguments["filetype"]
@@ -39,7 +39,7 @@ class DataDict:
 
         self._extract_archive()
         self._get_dict()
-        #self._del_archive_folder()
+        # self._del_archive_folder()
 
     def _extract_archive(self):
         self.path = self.archive.split(".zip")[0]

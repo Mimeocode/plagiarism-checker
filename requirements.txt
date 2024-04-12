@@ -7,3 +7,5 @@ copydetect~=0.4.5
 matplotlib~=3.7.1
 seaborn~=0.12.2
 networkx~=3.1
+pydot~=2.0.0
+neato~=1.0.0

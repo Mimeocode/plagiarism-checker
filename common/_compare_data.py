@@ -11,6 +11,7 @@ from attrs import define, field, validators, setters
 
 @define(kw_only=True)
 class CompareDict:
+    """Comparison Object that allows for comparison of files."""
     exclude_kw: str | None = field(validator=validators.optional(validators.instance_of(str)), default=None, on_setattr=setters.frozen)
     cellwise: bool | None = field(validator=validators.optional(validators.instance_of(bool)), default=None, on_setattr=setters.frozen)
 
@@ -129,6 +130,3 @@ class CompareDict:
 
     def _del_tmp_folder(self):
         shutil.rmtree(self._TMP_FOLDER)
-
-
-
