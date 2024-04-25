@@ -13,10 +13,12 @@ def _add_metric_distance(df: pd.DataFrame, metric_scaler: int = 10) -> pd.DataFr
         vals = filter(None, list(cell))
         if any(cell):
             # euclidean distance!
-            scaled_vals = [(v * metric_scaler) ** 2 for v in vals] # scaling values since if 1 -> max distance is 1, if scaled distance increases when multiple metrics are max
+            scaled_vals = [(v * metric_scaler) ** 2 for v in
+                           vals]  # scaling values since if 1 -> max distance is 1, if scaled distance increases when multiple metrics are max
             z = np.sqrt(reduce(add, scaled_vals)) / metric_scaler
             return cell + (z,)
         return None
+
     df = df.applymap(_process_cell)
     return df
 
@@ -51,7 +53,8 @@ class Flagger:
 
         self._extract_names()  # get names of submissions from file names
         self._flagging_df_from_score_lists()
-        self.flagging_df.dropna(axis=0, how="any", inplace=True)  # optional to get rid of incompletely analysed submissions
+        self.flagging_df.dropna(axis=0, how="any",
+                                inplace=True)  # optional to get rid of incompletely analysed submissions
 
         if self.baseline and self.barren_threshold:
             self._remove_barren()
@@ -67,7 +70,6 @@ class Flagger:
         if self.extractor:
             self.file_names = [self.extractor(name) if self.baseline not in name else name for name in self.file_names]
 
-
     def _flagging_df_from_score_lists(self):
         def __make_tuple(x, y):
             if isinstance(x, tuple):
@@ -75,7 +77,7 @@ class Flagger:
             return x, y
 
         dfs = []
-        for lst in [self.markdown_scores, self.code_scores]: # make dfs from not None score lists
+        for lst in [self.markdown_scores, self.code_scores]:  # make dfs from not None score lists
             if lst is not None:
                 df = pd.DataFrame(lst)
                 # df.columns = df.index = self.file_names # not necessary since not accessed anywhere
@@ -92,7 +94,7 @@ class Flagger:
         i, j = primary_df.shape
         assert i == j, f"ERROR, matrix expected to be square, got: {i}x{j}"
         data_size = int((i * j - j) / 2)  # number of unique relations between n elements
-        self.metric_cols = [f"Metric_{column_index}" for column_index in range(len(dfs)+1)]
+        self.metric_cols = [f"Metric_{column_index}" for column_index in range(len(dfs) + 1)]
 
         data = {'Submission 1': [None] * data_size,
                 'Submission 2': [None] * data_size,
@@ -111,27 +113,29 @@ class Flagger:
 
         self.flagging_df = pd.DataFrame(data).sort_values(self.metric_cols[-1], ascending=False)  # sorted by distance
 
-    def _remove_barren(self):
+    def _remove_barren(self) -> None:
         to_keep = [self.baseline]
         df = self.flagging_df
 
         # target_df is copy since flagging modifies underlying df
         target_df = df[df['Submission 1'].isin(to_keep) | df['Submission 2'].isin(to_keep)].copy()
-        self._flag_outliers(df=target_df, threshold=self.barren_threshold)
+
+        self._flag_outliers(df=target_df, threshold=self.barren_threshold, quantile=False)
         target_df_sus = target_df[target_df["Classification"] > 0]
 
-        to_exclude = target_df_sus[["Submission 1", "Submission 2"]].tolist()  # THIS COULD BE AN ISSUE
-        to_exclude = [str(x) for x in set(to_exclude)]
+        to_exclude = target_df_sus[["Submission 1", "Submission 2"]].values.tolist()
+        to_exclude = set(sum(to_exclude, []))
 
         self.flagging_df = df[~df['Submission 1'].isin(to_exclude) | ~df['Submission 2'].isin(to_exclude)]
 
-    def _flag_outliers(self, df, threshold):
+    def _flag_outliers(self, df: pd.DataFrame, threshold: float, quantile: bool = True) -> None:
         df["Classification"] = 0
 
         tmp_iter = self.metric_cols if not self.code_only else [self.metric_cols[1]]
         for ti in tmp_iter:
-            q_threshold = df[ti].quantile(1 - threshold)
-            df.loc[df[ti] >= q_threshold, "Classification"] += 1  # if a metric is above the threshold increase classifcation of pairing
+            q_threshold = df[ti].quantile(1 - threshold) if quantile else threshold
+            df.loc[df[
+                       ti] >= q_threshold, "Classification"] += 1  # if a metric is above the threshold increase classifcation of pairing
 
     def save_csv(self):
         self.flagging_df.to_csv("temp.csv")

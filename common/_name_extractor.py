@@ -15,7 +15,7 @@ def canvas_rule(x: str) -> str:
         return x
 
 
-def code_grade_rule(x: str) -> str:  # 5016643 - F.A. Moser (Ferris)_Exercise-1.
+def code_grade_rule(x: str) -> str:  # 5046643 - F Muster (Ferhart)_Exercise-1.
     cand = x.split("_")[0]
     cand = cand.split(" - ")[-1]
     return cand

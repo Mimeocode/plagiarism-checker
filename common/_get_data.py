@@ -117,6 +117,3 @@ class DataDict:
     def _del_archive_folder(self):
         os.remove(self.archive)
         shutil.rmtree(self.archive.split(".zip")[0])
-
-    def __del__(self):
-        shutil.rmtree(self.path)

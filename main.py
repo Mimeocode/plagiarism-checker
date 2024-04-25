@@ -52,7 +52,6 @@ def main(arguments: vars) -> None:
                file_names=list(dd.data_dict.keys()))
     r.generate_report(with_cases=False)
     print("DONE!")
-    del dd
 
 
 if __name__ == '__main__':
